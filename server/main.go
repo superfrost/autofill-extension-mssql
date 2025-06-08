@@ -14,7 +14,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// User представляет структуру пользователя
 type User struct {
 	MKABID        int    `json:"id"`
 	NAME          string `json:"name"`
@@ -30,20 +29,16 @@ type User struct {
 	ContactMPhone string `json:"contactMPhone"`
 }
 
-// Response представляет структуру ответа
 type Response struct {
 	Users []User `json:"users"`
 	Error string `json:"error,omitempty"`
 }
 
 func main() {
-	// Загрузка переменных окружения из .env файла
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Ошибка загрузки .env файла:", err)
+		log.Println("не могу загрузить .env файл, продолжаю с переменными окружения")
 	}
-
-	// Получение данных для подключения из переменных окружения
 
 	query := url.Values{}
 	query.Add("database", os.Getenv("DB_NAME"))
@@ -55,8 +50,23 @@ func main() {
 		RawQuery: query.Encode(),
 	}
 
-	// Обработка маршрута /list
-	http.HandleFunc("/list", func(w http.ResponseWriter, r *http.Request) {
+	db, err := sql.Open("sqlserver", u.String())
+	if err != nil {
+		log.Fatalf("не удалось подключиться к базе данных: %v", err)
+	}
+	defer db.Close()
+
+	http.HandleFunc("/list", handleList(db))
+
+	port := fmt.Sprintf("0.0.0.0:%s", os.Getenv("APP_PORT"))
+	fmt.Printf("Сервер запущен на http://%s\n", port)
+	if err := http.ListenAndServe(port, nil); err != nil {
+		log.Fatal("Ошибка при запуске сервера:", err)
+	}
+}
+
+func handleList(db *sql.DB) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
 			return
@@ -66,54 +76,37 @@ func main() {
 			Query string `json:"query"`
 		}
 
-		// Декодирование JSON из тела запроса
 		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 			http.Error(w, "Неверный формат запроса", http.StatusBadRequest)
 			return
 		}
 
-		log.Println("query:", input.Query)
+		if len(input.Query) < 3 {
+			http.Error(w, "Строка запроса должна состоять не меньше чем из 3х символов", http.StatusBadRequest)
+			return
+		}
 
-		// Получение списка пользователей из базы данных
-		users, err := getUsers(u.String(), input.Query)
+		users, err := getUsers(db, input.Query)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		// Формирование ответа
 		response := Response{Users: users}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
-	})
-
-	// Запуск сервера
-	port := ":8070"
-	fmt.Printf("Сервер запущен на порту %s\n", port)
-	if err := http.ListenAndServe(port, nil); err != nil {
-		log.Fatal("Ошибка при запуске сервера:", err)
 	}
 }
 
-// getUsers выполняет запрос к базе данных и возвращает список пользователей
-func getUsers(connString, query string) ([]User, error) {
+func getUsers(db *sql.DB, query string) ([]User, error) {
 	var users []User
 
-	// Подключение к базе данных
-	db, err := sql.Open("sqlserver", connString)
-	if err != nil {
-		return nil, fmt.Errorf("не удалось подключиться к базе данных: %v", err)
-	}
-	defer db.Close()
-
-	// Выполнение запроса
 	rows, err := db.Query("SELECT MKABID, FAMILY, NAME, OT, SS, S_DOC, N_DOC, DATE_BD, ADRES, rf_kl_SexID, contactEmail, contactMPhone FROM hlt_MKAB WHERE SS LIKE @p1", "%"+query+"%")
 	if err != nil {
 		return nil, fmt.Errorf("ошибка при выполнении запроса: %v", err)
 	}
 	defer rows.Close()
 
-	// Чтение результатов
 	for rows.Next() {
 		var user User
 		if err := rows.Scan(

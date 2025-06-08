@@ -17,6 +17,9 @@ tidy:
 	@echo "go tidy..."
 	@cd $(SRC_DIR) && go mod tidy
 
+dev: tidy
+	@cd $(SRC_DIR) && go run main.go
+
 # Упаковка расширения в ZIP
 package_extension:
 	@mkdir -p $(DIST_DIR)
