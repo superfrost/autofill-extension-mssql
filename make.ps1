@@ -1,86 +1,104 @@
-# Имя выходных файлов
+<#
+.SYNOPSIS
+Build script for autofillserver project
+#>
+
+# Configuration
 $BINARY_NAME = "autofillserver"
 $EXTENSION_DIR = "extension"
 $DIST_DIR = "dist"
-$ZIP_FILE = Join-Path $DIST_DIR "extension.zip"
-
-# Папка с исходным кодом сервера
+$ZIP_FILE = "$DIST_DIR/extension.zip"
 $SRC_DIR = "server"
 
-# Список файлов для упаковки расширения
+# List of extension files to package
 $EXT_FILES = @("manifest.json", "popup.html", "popup.js", "icon16.png", "icon48.png", "icon128.png")
 
-# Основная функция
-function Main {
-    Clean
-    Package-Extension
-    Build-Server
+function Invoke-Clean {
+    Write-Host "Cleaning..."
+    if (Test-Path $DIST_DIR) {
+        Remove-Item -Recurse -Force $DIST_DIR
+    }
 }
 
-# Упаковка расширения в ZIP
-function Package-Extension {
-    if (-Not (Test-Path $DIST_DIR)) {
+function Invoke-PackageExtension {
+    Write-Host "Pack extension to ZIP..."
+    
+    if (!(Test-Path $DIST_DIR)) {
         New-Item -ItemType Directory -Path $DIST_DIR | Out-Null
     }
-    Write-Host "Упаковка файлов в ZIP..."
-    Copy-Item -Path (Join-Path $EXTENSION_DIR "*") -Destination $DIST_DIR -Recurse
-    Compress-Archive -Path (Join-Path $DIST_DIR "*") -DestinationPath $ZIP_FILE
-    Remove-Item -Path (Join-Path $DIST_DIR $EXT_FILES) -Force
+    
+    # Copy extension files to dist directory
+    Copy-Item -Path "$EXTENSION_DIR\*" -Destination $DIST_DIR -Recurse
+    
+    # Create zip archive
+    Compress-Archive -Path "$DIST_DIR\*" -DestinationPath $ZIP_FILE -Force
+    
+    # Remove copied files
+    foreach ($file in $EXT_FILES) {
+        $filePath = Join-Path -Path $DIST_DIR -ChildPath $file
+        if (Test-Path $filePath) {
+            Remove-Item $filePath
+        }
+    }
 }
 
-# Сборка для Linux
-function Build-Linux {
-    Write-Host "Сборка сервера для Linux..."
-    Set-Location $SRC_DIR
+function Invoke-BuildLinux {
+    Write-Host "Building server for Linux..."
     $env:GOOS = "linux"
     $env:GOARCH = "amd64"
-    go build -o (Join-Path ".." (Join-Path $DIST_DIR "$BINARY_NAME`_linux_amd64")) main.go
-    Set-Location ..
+    Push-Location $SRC_DIR
+    go build -o "../$DIST_DIR/${BINARY_NAME}_linux_amd64" main.go
+    Pop-Location
 }
 
-# Сборка для Windows
-function Build-Windows {
-    Write-Host "Сборка сервера для Windows..."
-    Set-Location $SRC_DIR
+function Invoke-BuildWindows {
+    Write-Host "Building server for Windows..."
     $env:GOOS = "windows"
     $env:GOARCH = "amd64"
-    go build -o (Join-Path ".." (Join-Path $DIST_DIR "$BINARY_NAME`_windows_amd64.exe")) main.go
-    Set-Location ..
+    Push-Location $SRC_DIR
+    go build -o "../$DIST_DIR/${BINARY_NAME}_windows_amd64.exe" main.go
+    Pop-Location
 }
 
-# Сборка для macOS intel
-function Build-Darwin {
-    Write-Host "Сборка сервера для macOS..."
-    Set-Location $SRC_DIR
+function Invoke-BuildDarwin {
+    Write-Host "Building server for macOS..."
     $env:GOOS = "darwin"
     $env:GOARCH = "amd64"
-    go build -o (Join-Path ".." (Join-Path $DIST_DIR "$BINARY_NAME`_darwin_amd64")) main.go
-    Set-Location ..
+    Push-Location $SRC_DIR
+    go build -o "../$DIST_DIR/${BINARY_NAME}_darwin_amd64" main.go
+    Pop-Location
 }
 
-# Сборка для macOS arm
-function Build-Darwin-Arm64 {
-    Write-Host "Сборка сервера для macOS arm64..."
-    Set-Location $SRC_DIR
+function Invoke-BuildDarwinArm64 {
+    Write-Host "Building server for macOS arm64..."
     $env:GOOS = "darwin"
     $env:GOARCH = "arm64"
-    go build -o (Join-Path ".." (Join-Path $DIST_DIR "$BINARY_NAME`_darwin_arm64")) main.go
-    Set-Location ..
+    Push-Location $SRC_DIR
+    go build -o "../$DIST_DIR/${BINARY_NAME}_darwin_arm64" main.go
+    Pop-Location
 }
 
-# Сборка сервера для всех платформ
-function Build-Server {
-    Build-Linux
-    Build-Windows
-    Build-Darwin
-    Build-Darwin-Arm64
+function Invoke-BuildServer {
+    Invoke-BuildLinux
+    Invoke-BuildWindows
+    Invoke-BuildDarwin
+    Invoke-BuildDarwinArm64
 }
 
-# Очистка выходных файлов
-function Clean {
-    Write-Host "Очистка..."
-    Remove-Item -Path $DIST_DIR -Recurse -Force -ErrorAction SilentlyContinue
+function Invoke-All {
+    Invoke-Clean
+    Invoke-PackageExtension
+    Invoke-BuildServer
 }
 
-# Запуск основной функции
-Main
+# Main execution
+switch ($args[0]) {
+    "clean" { Invoke-Clean }
+    "package_extension" { Invoke-PackageExtension }
+    "build_linux" { Invoke-BuildLinux }
+    "build_windows" { Invoke-BuildWindows }
+    "build_darwin" { Invoke-BuildDarwin }
+    "build_darwin_arm64" { Invoke-BuildDarwinArm64 }
+    "build_server" { Invoke-BuildServer }
+    default { Invoke-All }
+}
