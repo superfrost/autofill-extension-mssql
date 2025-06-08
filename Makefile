@@ -11,7 +11,11 @@ SRC_DIR = server
 EXT_FILES = manifest.json popup.html popup.js icon16.png icon48.png icon128.png
 
 # Цели для сборки
-all: clean package_extension build_server
+all: clean tidy package_extension build_server
+
+tidy:
+	@echo "go tidy..."
+	@cd $(SRC_DIR) && go mod tidy
 
 # Упаковка расширения в ZIP
 package_extension:
@@ -33,12 +37,12 @@ build_windows:
 
 # Сборка для macOS intel
 build_darwin:
-	@echo "Сборка сервера для macOS..."
+	@echo "Сборка сервера для MacOS..."
 	@cd $(SRC_DIR) && GOOS=darwin GOARCH=amd64 go build -o ../$(DIST_DIR)/$(BINARY_NAME)_darwin_amd64 main.go
 
 # Сборка для macOS arm
 build_darwin_arm64:
-	@echo "Сборка сервера для macOS arm64..."
+	@echo "Сборка сервера для MacOS arm64..."
 	@cd $(SRC_DIR) && GOOS=darwin GOARCH=arm64 go build -o ../$(DIST_DIR)/$(BINARY_NAME)_darwin_arm64 main.go
 
 # Сборка сервера для всех платформ
@@ -50,4 +54,4 @@ clean:
 	rm -rf $(DIST_DIR)
 
 # Цель по умолчанию
-.PHONY: all clean package_extension build_server build_linux build_windows build_darwin build_darwin_arm64
+.PHONY: all tidy clean package_extension build_server build_linux build_windows build_darwin build_darwin_arm64

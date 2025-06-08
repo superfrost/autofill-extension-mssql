@@ -13,6 +13,13 @@ $SRC_DIR = "server"
 # List of extension files to package
 $EXT_FILES = @("manifest.json", "popup.html", "popup.js", "icon16.png", "icon48.png", "icon128.png")
 
+function Invoke-Tidy {
+    Write-Host "go tidy..."
+    Set-Location $SRC_DIR
+    go mod tidy
+    Set-Location ..
+}
+
 function Invoke-Clean {
     Write-Host "Cleaning..."
     if (Test-Path $DIST_DIR) {
@@ -60,29 +67,10 @@ function Invoke-BuildWindows {
     Pop-Location
 }
 
-function Invoke-BuildDarwin {
-    Write-Host "Building server for macOS..."
-    $env:GOOS = "darwin"
-    $env:GOARCH = "amd64"
-    Push-Location $SRC_DIR
-    go build -o "../$DIST_DIR/${BINARY_NAME}_darwin_amd64" main.go
-    Pop-Location
-}
-
-function Invoke-BuildDarwinArm64 {
-    Write-Host "Building server for macOS arm64..."
-    $env:GOOS = "darwin"
-    $env:GOARCH = "arm64"
-    Push-Location $SRC_DIR
-    go build -o "../$DIST_DIR/${BINARY_NAME}_darwin_arm64" main.go
-    Pop-Location
-}
-
 function Invoke-BuildServer {
-    Invoke-BuildLinux
+    Invoke-Tidy
     Invoke-BuildWindows
-    Invoke-BuildDarwin
-    Invoke-BuildDarwinArm64
+    # Invoke-BuildLinux
 }
 
 function Invoke-All {
@@ -97,8 +85,6 @@ switch ($args[0]) {
     "package_extension" { Invoke-PackageExtension }
     "build_linux" { Invoke-BuildLinux }
     "build_windows" { Invoke-BuildWindows }
-    "build_darwin" { Invoke-BuildDarwin }
-    "build_darwin_arm64" { Invoke-BuildDarwinArm64 }
     "build_server" { Invoke-BuildServer }
     default { Invoke-All }
 }
