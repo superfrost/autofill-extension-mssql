@@ -1,0 +1,15 @@
+stages:
+  - build
+
+build:
+  stage: build
+  image: 
+  before_script:
+    - mkdir 
+  script:
+    - make
+  artifacts:
+    paths:
+      - $DIST_DIR/*
+  only:
+    - main
