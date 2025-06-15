@@ -78,11 +78,6 @@ func main() {
 
 func handleList(db *sql.DB) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
-			return
-		}
-
 		var input struct {
 			Query string `json:"query"`
 		}
