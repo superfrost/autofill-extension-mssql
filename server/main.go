@@ -29,7 +29,16 @@ type User struct {
 	ContactMPhone string `json:"contactMPhone"`
 }
 
-type Response struct {
+type File struct {
+	Path string `json:"path"`
+}
+
+type ResponseFiles struct {
+	Files []string `json:"files"`
+	Error string   `json:"error,omitempty"`
+}
+
+type ResponseUsers struct {
 	Users []User `json:"users"`
 	Error string `json:"error,omitempty"`
 }
@@ -56,11 +65,13 @@ func main() {
 	}
 	defer db.Close()
 
-	http.HandleFunc("/list", handleList(db))
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /list", handleList(db))
+	mux.HandleFunc("POST /files", handleFiles(db))
 
 	port := fmt.Sprintf("0.0.0.0:%s", os.Getenv("APP_PORT"))
 	fmt.Printf("Сервер запущен на http://%s\n", port)
-	if err := http.ListenAndServe(port, nil); err != nil {
+	if err := http.ListenAndServe(port, mux); err != nil {
 		log.Fatal("Ошибка при запуске сервера:", err)
 	}
 }
@@ -92,7 +103,7 @@ func handleList(db *sql.DB) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		response := Response{Users: users}
+		response := ResponseUsers{Users: users}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
 	}
@@ -132,4 +143,54 @@ func getUsers(db *sql.DB, query string) ([]User, error) {
 	}
 
 	return users, nil
+}
+
+func handleFiles(db *sql.DB) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			Query string `json:"query"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			http.Error(w, "Неверный формат запроса", http.StatusBadRequest)
+			return
+		}
+
+		files, err := getFiles(db, input.Query)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		response := ResponseFiles{Files: files}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}
+}
+
+func getFiles(db *sql.DB, snils string) ([]string, error) {
+	var files []string
+
+	rows, err := db.Query(
+		"SELECT atf_fileattachment.path FROM atf_fileattachment JOIN atf_fileinfo ON atf_fileattachment.rf_fileinfoid = atf_fileinfo.fileinfoid JOIN hlt_mkab ON hlt_mkab.uguid = atf_fileinfo.descguid WHERE hlt_mkab.SS = @p1",
+		snils,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка при выполнении запроса: %v", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var file File
+		if err := rows.Scan(&file.Path); err != nil {
+			return nil, fmt.Errorf("ошибка при чтении данных: %v", err)
+		}
+		files = append(files, file.Path)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("ошибка при обработке результатов: %v", err)
+	}
+
+	return files, nil
 }
