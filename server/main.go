@@ -33,6 +33,16 @@ type File struct {
 	Path string `json:"path"`
 }
 
+type View struct {
+	ViewData string `json:"view_data"`
+	Sign     string `json:"sign"`
+}
+
+type ResponseViews struct {
+	Views []View `json:"views"`
+	Error string `json:"error,omitempty"`
+}
+
 type ResponseFiles struct {
 	Files []string `json:"files"`
 	Error string   `json:"error,omitempty"`
@@ -68,6 +78,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /list", handleList(db))
 	mux.HandleFunc("POST /files", handleFiles(db))
+	mux.HandleFunc("POST /views", handleViews(db))
 
 	port := fmt.Sprintf("0.0.0.0:%s", os.Getenv("APP_PORT"))
 	fmt.Printf("Сервер запущен на http://%s\n", port)
@@ -188,4 +199,57 @@ func getFiles(db *sql.DB, snils string) ([]string, error) {
 	}
 
 	return files, nil
+}
+
+func handleViews(db *sql.DB) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			Query string `json:"query"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			http.Error(w, "Неверный формат запроса", http.StatusBadRequest)
+			return
+		}
+
+		views, err := getViews(db, input.Query)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		response := ResponseViews{Views: views}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}
+}
+
+func getViews(db *sql.DB, snils string) ([]View, error) {
+	var views []View
+
+	rows, err := db.Query(
+		"SELECT ViewData, Sign FROM hlt_MedRecord JOIN hlt_VisitHistory ON hlt_MedRecord.rf_VisitHistoryID=hlt_VisitHistory.VisitHistoryID JOIN hlt_MKAB ON hlt_VisitHistory.rf_MKABID=hlt_MKAB.MKABID WHERE hlt_MKAB.SS = @p1;",
+		snils,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка при выполнении запроса: %v", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var view View
+		if err := rows.Scan(
+			&view.ViewData,
+			&view.Sign,
+		); err != nil {
+			return nil, fmt.Errorf("ошибка при чтении данных: %v", err)
+		}
+		views = append(views, view)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("ошибка при обработке результатов: %v", err)
+	}
+
+	return views, nil
 }
