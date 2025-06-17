@@ -1,2 +1,4 @@
 .env
 dist/
+*.pem
+*_old.js
