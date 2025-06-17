@@ -24,7 +24,7 @@ function Invoke-Check-Node {
         }
         Write-Host "[+] Node.js is installed: $nodeVersionOutput"
     } catch {
-        Write-Host "[-] Node.js is not installed. Please install Node.js version $NodeVersion or higher."
+        Write-Host "[-] Node.js is not installed. Please install Node.js version $NODE_VERSION or higher."
         exit 1
     }
 }
@@ -94,11 +94,15 @@ function Invoke-PackageExtension-Zip {
             Remove-Item $filePath
         }
     }
+
+    Remove-Item "$DIST_DIR\popup"
+    Remove-Item "$DIST_DIR\icons"
+
     Write-Host "[+] Pack extension to ZIP OK"
 }
 
 # List of extension files to package
-$EXT_FILES = @("manifest.json", "style.css", "content.js", "background.js", "popup/popup.html", "popup/popup.js", "icons/icon16.png", "icons/icon48.png", "icons/icon128.png", "popup/", "icons/")
+$EXT_FILES = @("manifest.json", "style.css", "content.js", "background.js", "popup/popup.html", "popup/popup.js", "icons/icon16.png", "icons/icon48.png", "icons/icon128.png")
 
 function Invoke-Tidy {
     Write-Host "go tidy..."
