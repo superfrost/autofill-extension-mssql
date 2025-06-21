@@ -1,0 +1,34 @@
+{
+  "extensionName": {
+    "message": "Text Autocomplete",
+    "description": "Extension name"
+  },
+  "extensionDescription": {
+    "message": "An extension for autocompleting text in forms by connecting to an external server.",
+    "description": "Extension description"
+  },
+  "optionsPageTitle": {
+    "message": "Autocomplete Server Settings",
+    "description": "Options page title"
+  },
+  "serverAddressLabel": {
+    "message": "Server Address (URL or IP):",
+    "description": "Label for server address input field"
+  },
+  "serverAddressPlaceholder": {
+    "message": "e.g., http://localhost:3000 or https://api.myservice.com",
+    "description": "Placeholder for server address field"
+  },
+  "saveButtonText": {
+    "message": "Save Settings",
+    "description": "Save button text"
+  },
+  "settingsSaved": {
+    "message": "Settings saved!",
+    "description": "Success message for saving settings"
+  },
+  "invalidUrlError": {
+    "message": "Error: Please enter a valid URL (including protocol, e.g., http:// or https://).",
+    "description": "Error message for invalid URL"
+  }
+}

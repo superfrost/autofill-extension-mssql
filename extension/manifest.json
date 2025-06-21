@@ -1,18 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "Autofill extension",
+  "name": "__MSG_extensionName__",
+  "description": "__MSG_extensionDescription__",
   "version": "1.0",
-  "permissions": ["activeTab", "storage", "scripting"],
+  "default_locale": "ru",
+  "permissions": ["activeTab", "tabs", "storage", "scripting"],
   "host_permissions": ["<all_urls>"],
   "content_scripts": [
     {
-      "matches": [
-        "https://example.com/page1*",
-        "https://example.com/page2*",
-        "https://example.com/page3*",
-        "https://example.com/page4*",
-        "https://example.com/page5*"
-      ],
+      "matches": ["<all_urls>"],
       "js": ["content.js"],
       "css": ["styles.css"],
       "run_at": "document_end"

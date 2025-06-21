@@ -1,0 +1,34 @@
+{
+  "extensionName": {
+    "message": "Автодополнение текста",
+    "description": "Название расширения"
+  },
+  "extensionDescription": {
+    "message": "Расширение для автодополнения текста в формах, подключаемое к внешнему серверу.",
+    "description": "Описание расширения"
+  },
+  "optionsPageTitle": {
+    "message": "Настройки сервера автодополнения",
+    "description": "Заголовок страницы настроек"
+  },
+  "serverAddressLabel": {
+    "message": "Адрес сервера (URL или IP):",
+    "description": "Метка для поля ввода адреса сервера"
+  },
+  "serverAddressPlaceholder": {
+    "message": "например, http://localhost:3000 или https://api.myservice.com",
+    "description": "Плейсхолдер для поля адреса сервера"
+  },
+  "saveButtonText": {
+    "message": "Сохранить настройки",
+    "description": "Текст кнопки сохранения"
+  },
+  "settingsSaved": {
+    "message": "Настройки сохранены!",
+    "description": "Сообщение об успешном сохранении"
+  },
+  "invalidUrlError": {
+    "message": "Ошибка: Введите действительный URL-адрес (включая протокол, например http:// или https://).",
+    "description": "Сообщение об ошибке неверного URL"
+  }
+}

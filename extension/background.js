@@ -1,11 +1,24 @@
-// Фоновый скрипт для обработки сообщений
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === "API_SETTINGS_UPDATE") {
-    // Рассылаем обновление настроек во все вкладки
-    chrome.tabs.query({}, (tabs) => {
-      for (const tab of tabs) {
-        chrome.tabs.sendMessage(tab.id, message);
-      }
+// background.js
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "autocomplete") {
+    // Получаем сохраненный адрес сервера
+    chrome.storage.sync.get('serverAddress', (data) => {
+      const serverAddress = data.serverAddress || 'http://localhost:3000'; // Используем значение по умолчанию, если не установлено
+
+      fetch(`${serverAddress}/api/autocomplete?q=${encodeURIComponent(request.text)}`)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`Ошибка HTTP: ${response.status} ${response.statusText}`);
+          }
+          return response.json();
+        })
+        .then(data => sendResponse({ suggestions: data }))
+        .catch(error => {
+          console.error("Ошибка при получении автодополнения:", error);
+          // Отправляем сообщение об ошибке контент-скрипту, чтобы он мог сообщить пользователю
+          sendResponse({ suggestions: [], error: error.message });
+        });
     });
+    return true; // Указывает, что sendResponse будет вызван асинхронно
   }
 });

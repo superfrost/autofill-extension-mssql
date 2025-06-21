@@ -1,50 +1,46 @@
+// options.js
 document.addEventListener('DOMContentLoaded', () => {
-  const saveBtn = document.getElementById('saveBtn');
-  const baseUrlInput = document.getElementById('baseUrl');
-  const portInput = document.getElementById('port');
-  const statusEl = document.getElementById('status');
-  
-  // Загрузка сохраненных настроек
-  chrome.storage.sync.get(['apiBaseUrl', 'apiPort'], (data) => {
-    if (data.apiBaseUrl) baseUrlInput.value = data.apiBaseUrl;
-    if (data.apiPort) portInput.value = data.apiPort;
-  });
-  
-  // Сохранение настроек
-  saveBtn.addEventListener('click', () => {
-    const baseUrl = baseUrlInput.value.trim();
-    const port = portInput.value.trim();
-    
-    if (!baseUrl || !port) {
-      showStatus('Заполните оба поля!', true);
-      return;
-    }
-    
-    chrome.storage.sync.set({
-      apiBaseUrl: baseUrl,
-      apiPort: port
-    }, () => {
-      showStatus('Настройки сохранены!');
-      
-      // Сообщаем контент-скриптам об обновлении настроек
-      chrome.tabs.query({}, (tabs) => {
-        for (const tab of tabs) {
-          chrome.tabs.sendMessage(tab.id, {
-            type: "API_SETTINGS_UPDATE",
-            baseUrl,
-            port
-          });
-        }
-      });
-    });
-  });
-  
-  function showStatus(message, isError = false) {
-    statusEl.textContent = message;
-    statusEl.style.color = isError ? '#f44336' : '#4CAF50';
-    
-    setTimeout(() => {
-      statusEl.textContent = '';
-    }, 3000);
-  }
+  applyLocalization();
+  restoreOptions();
 });
+document.getElementById('saveButton').addEventListener('click', saveOptions);
+
+function applyLocalization() {
+  document.title = chrome.i18n.getMessage('optionsPageTitle');
+  document.getElementById('optionsPageTitle').textContent = chrome.i18n.getMessage('optionsPageTitle');
+  document.getElementById('pageHeading').textContent = chrome.i18n.getMessage('optionsPageTitle');
+  document.getElementById('serverAddressLabel').textContent = chrome.i18n.getMessage('serverAddressLabel');
+  document.getElementById('serverAddress').placeholder = chrome.i18n.getMessage('serverAddressPlaceholder');
+  document.getElementById('saveButton').textContent = chrome.i18n.getMessage('saveButtonText');
+}
+
+function saveOptions() {
+  const serverAddress = document.getElementById('serverAddress').value;
+  const statusElement = document.getElementById('status');
+
+  try {
+    new URL(serverAddress);
+  } catch (e) {
+    statusElement.textContent = chrome.i18n.getMessage('invalidUrlError');
+    statusElement.classList.add('error');
+    return;
+  }
+
+  chrome.storage.sync.set({
+    serverAddress: serverAddress
+  }, () => {
+    statusElement.textContent = chrome.i18n.getMessage('settingsSaved');
+    statusElement.classList.remove('error');
+    setTimeout(() => {
+      statusElement.textContent = '';
+    }, 2000);
+  });
+}
+
+function restoreOptions() {
+  chrome.storage.sync.get({
+    serverAddress: 'http://localhost:3000'
+  }, (items) => {
+    document.getElementById('serverAddress').value = items.serverAddress;
+  });
+}
