@@ -3,9 +3,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "autocomplete") {
     // Получаем сохраненный адрес сервера
     chrome.storage.sync.get('serverAddress', (data) => {
-      const serverAddress = data.serverAddress || 'http://localhost:3000'; // Используем значение по умолчанию, если не установлено
+      const serverAddress = data.serverAddress || 'http://localhost:8070'; // Используем значение по умолчанию, если не установлено
 
-      fetch(`${serverAddress}/api/autocomplete?q=${encodeURIComponent(request.text)}`)
+      fetch(`${serverAddress}/list`, {
+        method: "POST",
+        body: JSON.stringify({
+          query: request.text
+        })
+      })
         .then(response => {
           if (!response.ok) {
             throw new Error(`Ошибка HTTP: ${response.status} ${response.statusText}`);
