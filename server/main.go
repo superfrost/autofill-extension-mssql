@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -15,18 +17,23 @@ import (
 )
 
 type User struct {
-	MKABID        int    `json:"id"`
-	NAME          string `json:"name"`
-	FAMILY        string `json:"family"`
-	OT            string `json:"ot"`
-	SS            string `json:"ss"`
-	S_DOC         string `json:"s_doc"`
-	N_DOC         string `json:"n_doc"`
-	DATE_BD       string `json:"date_bd"`
-	ADRES         string `json:"adres"`
-	Rf_kl_SexID   string `json:"sexid"`
-	ContactEmail  string `json:"contactEmail"`
-	ContactMPhone string `json:"contactMPhone"`
+	MKABID            int    `json:"id"`
+	NAME              string `json:"name"`
+	FAMILY            string `json:"family"`
+	OT                string `json:"ot"`
+	SS                string `json:"ss"`
+	S_DOC             string `json:"s_doc"`
+	N_DOC             string `json:"n_doc"`
+	DATE_BD           string `json:"date_bd"`
+	ADRES             string `json:"adres"`
+	Rf_kl_SexID       string `json:"sexid"`
+	ContactEmail      string `json:"contactEmail"`
+	ContactMPhone     string `json:"contactMPhone"`
+	Rf_TYPEDOCID      string `json:"rf_TYPEDOCID"`
+	AdresFact         string `json:"adresFact"`
+	DateDoc           string `json:"dateDoc"`
+	DocIssuedBy       string `json:"docIssuedBy"`
+	Rf_MilitaryDutyID string `json:"rf_MilitaryDutyID"`
 }
 
 type File struct {
@@ -79,6 +86,7 @@ func main() {
 	mux.HandleFunc("POST /list", handleList(db))
 	mux.HandleFunc("POST /files", handleFiles(db))
 	mux.HandleFunc("POST /views", handleViews(db))
+	mux.HandleFunc("POST /addr", handleAddress(db))
 
 	port := fmt.Sprintf("0.0.0.0:%s", os.Getenv("APP_PORT"))
 	fmt.Printf("Сервер запущен на http://%s\n", port)
@@ -118,7 +126,7 @@ func handleList(db *sql.DB) func(w http.ResponseWriter, r *http.Request) {
 func getUsers(db *sql.DB, query string) ([]User, error) {
 	var users []User
 
-	rows, err := db.Query("SELECT MKABID, FAMILY, NAME, OT, SS, S_DOC, N_DOC, DATE_BD, ADRES, rf_kl_SexID, contactEmail, contactMPhone FROM hlt_MKAB WHERE SS LIKE @p1", "%"+query+"%")
+	rows, err := db.Query("SELECT MKABID, FAMILY, NAME, OT, SS, S_DOC, N_DOC, DATE_BD, ADRES, rf_kl_SexID, contactEmail, contactMPhone, rf_TYPEDOCID, AdresFact, DateDoc, DocIssuedBy, rf_MilitaryDutyID FROM hlt_MKAB WHERE SS LIKE @p1", "%"+query+"%")
 	if err != nil {
 		return nil, fmt.Errorf("ошибка при выполнении запроса: %v", err)
 	}
@@ -138,7 +146,13 @@ func getUsers(db *sql.DB, query string) ([]User, error) {
 			&user.ADRES,
 			&user.Rf_kl_SexID,
 			&user.ContactEmail,
-			&user.ContactMPhone); err != nil {
+			&user.ContactMPhone,
+			&user.Rf_TYPEDOCID,
+			&user.AdresFact,
+			&user.DateDoc,
+			&user.DocIssuedBy,
+			&user.Rf_MilitaryDutyID,
+		); err != nil {
 			return nil, fmt.Errorf("ошибка при чтении данных: %v", err)
 		}
 		users = append(users, user)
@@ -252,4 +266,89 @@ func getViews(db *sql.DB, snils string) ([]View, error) {
 	}
 
 	return views, nil
+}
+
+func handleAddress(db *sql.DB) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			Query string `json:"query"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			http.Error(w, "Неверный формат запроса", http.StatusBadRequest)
+			return
+		}
+
+		addr, err := getAddress(db, input.Query)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(addr)
+	}
+}
+
+func getAddress(db *sql.DB, address string) (map[string]string, error) {
+	url := os.Getenv("COMPLETION_URL")
+	apiKey := os.Getenv("AI_TOKEN")
+
+	requestBody := map[string]interface{}{
+		"model": "gpt-4o",
+		"messages": []map[string]string{
+			{
+				"role":    "user",
+				"content": "Не генерируй ничего кроме json простой строкой без переноса строк и экранирования. Раздели адресс на следующие поля в формате ключь значение в формате json. {addr_type: Тип адреса гражданина, post_index: Почтовый индекс, rf_subj: Субъект Российской Федерации, rf_subj_reg: Район субъекта РФ, town_name: Наименование населенного пункта, street: Улица,  house: Дом (корпус, строение), flat: Квартира, fact_addr: Фактическое место нахождения гражданина } Вот Адрес: " + address,
+			},
+		},
+	}
+
+	jsonData, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка при кодировании JSON: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("ошибка при создании запроса: %v", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка при отправке запроса: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка при чтении ответа: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("ошибка при выполнении запроса: %v", err)
+	}
+	var openAIResponse map[string]interface{}
+	if err := json.Unmarshal(body, &openAIResponse); err != nil {
+		return nil, fmt.Errorf("ошибка при декодировании ответа JSON: %v", err)
+	}
+
+	choices := openAIResponse["choices"].([]interface{})
+	if len(choices) == 0 {
+		return nil, fmt.Errorf("нет доступного поля choices в ответе")
+	}
+
+	message := choices[0].(map[string]interface{})["message"].(map[string]interface{})
+	content := message["content"].(string)
+
+	var addressInfo map[string]string
+	if err := json.Unmarshal([]byte(content), &addressInfo); err != nil {
+		return nil, fmt.Errorf("ошибка при декодировании адреса JSON: %v", err)
+	}
+
+	return addressInfo, nil
 }
